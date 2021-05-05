@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val conn: ServiceConnection = object : ServiceConnection {
+        @RequiresApi(Build.VERSION_CODES.KITKAT)
         override fun onServiceConnected(name: ComponentName, serviceBinder: IBinder) {
             Log.d(ContentValues.TAG, "aidlService服务连接成功")
             if (serviceBinder != null) {    //绑定成功
