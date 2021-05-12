@@ -995,6 +995,31 @@ public class FelicaOperations {
 
         return res[0] == (byte) 0x00 && res[1] == (byte) 0x00;
     }
+    public int readBalance() throws IOException, RemoteException {
+        Timber.d("readBalance");
+        long val = pollingFelicaCard();
+        if (val == APP_ERROR) {
+            return -1;
+        }
+        int numOfService = 1;
+        int numOfBlocks = 1;
+
+        BalanceDataCodes genericDataCodes = new BalanceDataCodes();
+
+        ByteArrayOutputStream serviceList = new ByteArrayOutputStream();
+        serviceList.write(genericDataCodes.getSrvCodeBalanceReadWOEnc());
+
+        ByteArrayOutputStream blockList = new ByteArrayOutputStream();
+        blockList.write((byte) 0x80);            //card balance
+        blockList.write((byte) 0x00);
+
+        byte[] b = readDataWOAuth(numOfService, serviceList.toByteArray(), numOfBlocks, blockList.toByteArray());
+        int balance=ByteBuffer.wrap(Arrays.copyOfRange(b, 0, 4)).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        Timber.d("readBalance balance= %s",balance);
+
+        return balance;
+    }
+
 
     public boolean rechargeCard(RechargeRequestClass rechargeRequestClass) throws IOException, RemoteException {
 
