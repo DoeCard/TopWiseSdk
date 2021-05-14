@@ -178,156 +178,150 @@ public class FelicaOperations {
     private byte[] readDataViaAuth(int numOfBlocks, byte[] blockList) throws IOException, RemoteException {
 
         // Generate params sent to SAM
-        ByteArrayOutputStream felicaCmdParamsStream = new ByteArrayOutputStream();
-        felicaCmdParamsStream.write(IDt);
-        felicaCmdParamsStream.write((byte) numOfBlocks);
-        felicaCmdParamsStream.write(blockList);
+            Timber.d("in if");
+            ByteArrayOutputStream felicaCmdParamsStream = new ByteArrayOutputStream();
+            felicaCmdParamsStream.write(IDt);
+            felicaCmdParamsStream.write((byte) numOfBlocks);
+            felicaCmdParamsStream.write(blockList);
 
-        Log.e("numOfBlocks hex", "=" + byteToHex((byte) numOfBlocks));
+            Log.e("numOfBlocks hex", "=" + byteToHex((byte) numOfBlocks));
 
-        byte[] felicaCmdParams = felicaCmdParamsStream.toByteArray();
+            byte[] felicaCmdParams = felicaCmdParamsStream.toByteArray();
 
-        Log.e("readDataViaAuth", "felicaCmdFromSAM start");
-        Log.e("readDataViaAuth", "felicaCmdFromSAM =" + bytesToHexString(felicaCmdParams));
-        // Ask to SAM to generate FeliCa Command.
-        byte[] felicaCmdFromSAM = mSam.askFelicaCommandFromSAM(mFelicaCmdCodes.getFelicaCmdCodeReadEnc(),
-                mFelicaCmdCodes.getFelicaSubCmdCodeReadEnc(), felicaCmdParams).getResponseByte();
-        Log.e("readDataViaAuth", "felicaCmdFromSAM =" + bytesToHexString(felicaCmdFromSAM));
-        Log.e("readDataViaAuth", "felicaCmdFromSAM end");
+            Log.e("readDataViaAuth", "felicaCmdFromSAM start");
+            Log.e("readDataViaAuth", "felicaCmdFromSAM =" + bytesToHexString(felicaCmdParams));
+            // Ask to SAM to generate FeliCa Command.
+            byte[] felicaCmdFromSAM = mSam.askFelicaCommandFromSAM(mFelicaCmdCodes.getFelicaCmdCodeReadEnc(),
+                    mFelicaCmdCodes.getFelicaSubCmdCodeReadEnc(), felicaCmdParams).getResponseByte();
+            Log.e("readDataViaAuth", "felicaCmdFromSAM =" + bytesToHexString(felicaCmdFromSAM));
+            Log.e("readDataViaAuth", "felicaCmdFromSAM end");
 
-        Log.e("readDataViaAuth", "polling start");
-        ByteBuffer buff = ByteBuffer.wrap(new byte[felicaCmdFromSAM.length + 1]);
-        buff.put((byte) (felicaCmdFromSAM.length + 1));
-        buff.put(felicaCmdFromSAM);
+            Log.e("readDataViaAuth", "polling start");
+            ByteBuffer buff = ByteBuffer.wrap(new byte[felicaCmdFromSAM.length + 1]);
+            buff.put((byte) (felicaCmdFromSAM.length + 1));
+            buff.put(felicaCmdFromSAM);
 
-        Log.e("pollingCommand", " " + bytesToHexString(buff.array()));
-        byte[] data = mRfcard.apduComm(buff.array());
-        Log.e("readDataViaAuth", "polling end");
+            Log.e("pollingCommand", " " + bytesToHexString(buff.array()));
+            byte[] data = mRfcard.apduComm(buff.array());
+            Log.e("readDataViaAuth", "polling end");
 
-        byte[] cardResponse = data;
-        Log.e("readDataViaAuth", "cardResponse = " + bytesToHexString(cardResponse));
+            byte[] cardResponse = data;
+            Log.e("readDataViaAuth", "cardResponse = " + bytesToHexString(cardResponse));
 
-        Log.e("readDataViaAuth", "sendCardResultToSAM start");
-        byte[] decryptedCardResponse = mSam.sendCardResultToSAM(cardResponse);
-        Log.e("readDataViaAuth", "sendCardResultToSAM end");
+            Log.e("readDataViaAuth", "sendCardResultToSAM start");
+            byte[] decryptedCardResponse = mSam.sendCardResultToSAM(cardResponse);
+            Log.e("readDataViaAuth", "sendCardResultToSAM end");
 
 
-        Log.e("readDataViaAuth", "=" + bytesToHexString(decryptedCardResponse));
+            Log.e("readDataViaAuth", "=" + bytesToHexString(decryptedCardResponse));
 
-        return Arrays.copyOfRange(decryptedCardResponse, 3, decryptedCardResponse.length);
+            return Arrays.copyOfRange(decryptedCardResponse, 3, decryptedCardResponse.length);
+
     }
 
 
     @SuppressLint("LongLogTag")
     private boolean mutualAuthWithFelicaV2(int numOfService, byte[] serviceCodeList) {
 
-        // Diversification code(All Zero)
-        byte[] diversificationCode = new byte[]{
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00,
-                (byte) 0x00
-        };
+            // Diversification code(All Zero)
+            byte[] diversificationCode = new byte[]{
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x00
+            };
 
-        try {
+            try {
 
-            // Generate params sent to SAM
-            ByteArrayOutputStream felicaCmdParamStream = new ByteArrayOutputStream();
-            felicaCmdParamStream.write(IDm);                                        // IDm
-            felicaCmdParamStream.write((byte) 0x00);                                // Reserved
-            felicaCmdParamStream.write((byte) 0x03);                                // Key Type(Node key)
-            felicaCmdParamStream.write(mFelicaCmdCodes.getFelicaSystemCode());  // SystemCode(Big endian)
-            felicaCmdParamStream.write((byte) 0x00);                                // Operation Parameter(No Diversification, AES128)
-            felicaCmdParamStream.write(diversificationCode);                        // Diversification code(All Zero)
-            felicaCmdParamStream.write((byte) numOfService);                        // Number of Service
-            felicaCmdParamStream.write(serviceCodeList);                            // Service Code List
+                // Generate params sent to SAM
+                ByteArrayOutputStream felicaCmdParamStream = new ByteArrayOutputStream();
+                felicaCmdParamStream.write(IDm);                                        // IDm
+                felicaCmdParamStream.write((byte) 0x00);                                // Reserved
+                felicaCmdParamStream.write((byte) 0x03);                                // Key Type(Node key)
+                felicaCmdParamStream.write(mFelicaCmdCodes.getFelicaSystemCode());  // SystemCode(Big endian)
+                felicaCmdParamStream.write((byte) 0x00);                                // Operation Parameter(No Diversification, AES128)
+                felicaCmdParamStream.write(diversificationCode);                        // Diversification code(All Zero)
+                felicaCmdParamStream.write((byte) numOfService);                        // Number of Service
+                felicaCmdParamStream.write(serviceCodeList);                            // Service Code List
 
-            // Ask to SAM to generate FeliCa Command
-            byte[] felicaMutualAuthSAMCmd = new byte[0];
+                // Ask to SAM to generate FeliCa Command
+                byte[] felicaMutualAuthSAMCmd = new byte[0];
 
 
-            Log.e("mutualAuthWithFelicaV2", "askFelicaCommandFromSAM1 start");
-            Log.e("mutualAuthWithFelicaV2", "constructed felicaMutualAuth1SAMCmd = " + bytesToHexString(felicaCmdParamStream.toByteArray()));
+                Log.e("mutualAuthWithFelicaV2", "askFelicaCommandFromSAM1 start");
+                Log.e("mutualAuthWithFelicaV2", "constructed felicaMutualAuth1SAMCmd = " + bytesToHexString(felicaCmdParamStream.toByteArray()));
 
-            felicaMutualAuthSAMCmd = mSam.askFelicaCommandFromSAM(mSamCmdCodes.getSamCmdCodeMutualAuthV2RwSam(),
-                    mSamCmdCodes.getSamSubCmdCodeMutualAuthV2RwSam(), felicaCmdParamStream.toByteArray()).getResponseByte();
+                felicaMutualAuthSAMCmd = mSam.askFelicaCommandFromSAM(mSamCmdCodes.getSamCmdCodeMutualAuthV2RwSam(),
+                        mSamCmdCodes.getSamSubCmdCodeMutualAuthV2RwSam(), felicaCmdParamStream.toByteArray()).getResponseByte();
 
-            Log.e("mutualAuthWithFelicaV2", "from SAM felicaMutualAuth1SAMCmd = " + bytesToHexString(felicaMutualAuthSAMCmd));
-            Log.e("mutualAuthWithFelicaV2", "askFelicaCommandFromSAM1 End");
+                Log.e("mutualAuthWithFelicaV2", "from SAM felicaMutualAuth1SAMCmd = " + bytesToHexString(felicaMutualAuthSAMCmd));
+                Log.e("mutualAuthWithFelicaV2", "askFelicaCommandFromSAM1 End");
 
-            ByteBuffer buff = ByteBuffer.wrap(new byte[felicaMutualAuthSAMCmd.length + 1]);
-            buff.put((byte) (felicaMutualAuthSAMCmd.length + 1));
-            buff.put(felicaMutualAuthSAMCmd);
+                ByteBuffer buff = ByteBuffer.wrap(new byte[felicaMutualAuthSAMCmd.length + 1]);
+                buff.put((byte) (felicaMutualAuthSAMCmd.length + 1));
+                buff.put(felicaMutualAuthSAMCmd);
 
-            Timber.d("mutualAuthWithFelicaV2 pollingCommand1=%s", bytesToHexString(buff.array()));
-            byte[] data = mRfcard.apduComm(buff.array());
-            Timber.d("rfcard open =%s", mRfcard.open());
-            if (mRfcard.isExist()) {
+                Timber.d("mutualAuthWithFelicaV2 pollingCommand1=%s", bytesToHexString(buff.array()));
+                byte[] data = mRfcard.apduComm(buff.array());
+                byte[] cardResponse = data;
+
+                Log.e("mutualAuthWithFelicaV2", "sendAuth1V2ResultToSAM start");
+
+                byte[] auth1V2SAMResponse = mSam.sendAuth1V2ResultToSAM(cardResponse);
+                Log.e("mutualAuthWithFelicaV2 from SAM auth1V2SAMResponse", bytesToHexString(auth1V2SAMResponse));
+                Log.e("mutualAuthWithFelicaV2", "sendAuth1V2ResultToSAM end");
+
+                Log.e("mutualAuthWithFelicaV2", "polling2 start");
+                buff = ByteBuffer.wrap(new byte[auth1V2SAMResponse.length + 1]);
+                buff.put((byte) (auth1V2SAMResponse.length + 1));
+                buff.put(auth1V2SAMResponse);
+
+                Log.e("mutualAuthWithFelicaV2 pollingCommand2", " " + bytesToHexString(buff.array()));
                 data = mRfcard.apduComm(buff.array());
-                Timber.d("from card response mutualAuthWithFelicaV2 data to pollingCommand1=%s", bytesToHexString(data));
-            } else {
-                Timber.d("rfcard does not exist");
+                Timber.d("from card response mutualAuthWithFelicaV2 data to pollingCommand2=%s", bytesToHexString(data));
+                Log.e("mutualAuthWithFelicaV2", "polling2 end");
+                byte[] cardResponse2 = data;
+
+                Log.e("mutualAuthWithFelicaV2", "sendCardResultToSAM start");
+                byte[] auth2V2SAMResponse = mSam.sendCardResultToSAM(cardResponse2);
+                Log.e("mutualAuthWithFelicaV2 from SAM auth2V2SAMResponse", bytesToHexString(auth2V2SAMResponse));
+                Log.e("mutualAuthWithFelicaV2", "sendCardResultToSAM2 end");
+
+
+                if (auth2V2SAMResponse[0] == 0) {
+                    //Get IDt
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    byteArrayOutputStream.write(auth2V2SAMResponse[17]);
+                    byteArrayOutputStream.write(auth2V2SAMResponse[18]);
+
+                    this.IDt = byteArrayOutputStream.toByteArray();
+
+                    Log.e("mutualAuthWithFelicaV2 IDt", "=" + IDt);
+
+                    return true;
+
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            } catch (RemoteException e) {
+                e.printStackTrace();
             }
 
-
-            byte[] cardResponse = data;
-
-            Log.e("mutualAuthWithFelicaV2", "sendAuth1V2ResultToSAM start");
-
-            byte[] auth1V2SAMResponse = mSam.sendAuth1V2ResultToSAM(cardResponse);
-            Log.e("mutualAuthWithFelicaV2 from SAM auth1V2SAMResponse", bytesToHexString(auth1V2SAMResponse));
-            Log.e("mutualAuthWithFelicaV2", "sendAuth1V2ResultToSAM end");
-
-            Log.e("mutualAuthWithFelicaV2", "polling2 start");
-            buff = ByteBuffer.wrap(new byte[auth1V2SAMResponse.length + 1]);
-            buff.put((byte) (auth1V2SAMResponse.length + 1));
-            buff.put(auth1V2SAMResponse);
-
-            Log.e("mutualAuthWithFelicaV2 pollingCommand2", " " + bytesToHexString(buff.array()));
-            data = mRfcard.apduComm(buff.array());
-            Timber.d("from card response mutualAuthWithFelicaV2 data to pollingCommand2=%s", bytesToHexString(data));
-            Log.e("mutualAuthWithFelicaV2", "polling2 end");
-            byte[] cardResponse2 = data;
-
-            Log.e("mutualAuthWithFelicaV2", "sendCardResultToSAM start");
-            byte[] auth2V2SAMResponse = mSam.sendCardResultToSAM(cardResponse2);
-            Log.e("mutualAuthWithFelicaV2 from SAM auth2V2SAMResponse", bytesToHexString(auth2V2SAMResponse));
-            Log.e("mutualAuthWithFelicaV2", "sendCardResultToSAM2 end");
-
-
-            if (auth2V2SAMResponse[0] == 0) {
-                //Get IDt
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                byteArrayOutputStream.write(auth2V2SAMResponse[17]);
-                byteArrayOutputStream.write(auth2V2SAMResponse[18]);
-
-                this.IDt = byteArrayOutputStream.toByteArray();
-
-                Log.e("mutualAuthWithFelicaV2 IDt", "=" + IDt);
-
-                return true;
-
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
             return false;
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
 
-        return false;
     }
 
 
@@ -1434,4 +1428,5 @@ public class FelicaOperations {
         Timber.d("setFelicaResponse Felicaresponse %s", felicaResponse.toString());
         return felicaResponse;
     }
+
 }
