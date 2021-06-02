@@ -872,7 +872,8 @@ public class FelicaOperations {
             return false;
         }
 
-        updateExecutionID();
+        //updateExecutionID();
+        getExecutionIdFromCard();
         ByteArrayOutputStream blockList = new ByteArrayOutputStream();
         blockList.write((byte) 0x80);            //Card Balance(16)
         blockList.write((byte) 0x00);
