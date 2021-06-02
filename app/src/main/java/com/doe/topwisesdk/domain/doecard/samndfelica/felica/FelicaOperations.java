@@ -21,12 +21,14 @@ import com.doe.topwisesdk.domain.models.CardDataModel;
 import com.doe.topwisesdk.domain.models.FelicaResponse;
 import com.doe.topwisesdk.domain.models.TollDataModelClasses.TollDataModelClass;
 import com.doe.topwisesdk.domain.models.TollDataModelClasses.TollTransactionDataModelClass;
+import com.doe.topwisesdk.domain.models.TollScreenModelClass;
 import com.doe.topwisesdk.domain.models.genericdata.GenericDataPojoResponse;
 import com.doe.topwisesdk.domain.models.tollpass.StaticTollPassDetailPojo;
 import com.doe.topwisesdk.domain.models.tollpass.StaticTollPassDetailsResponse;
 import com.doe.topwisesdk.domain.models.tollpass.TemporaryTollPassPojo;
 import com.doe.topwisesdk.domain.models.tollpass.TemporaryTollPassResponse;
 import com.doe.topwisesdk.domain.models.transactionallogs.TransactionalLogsResponse;
+import com.google.gson.Gson;
 import com.topwise.cloudpos.aidl.rfcard.AidlRFCard;
 
 import java.io.ByteArrayOutputStream;
@@ -34,6 +36,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 import timber.log.Timber;
 
@@ -44,10 +47,6 @@ import static com.doe.topwisesdk.domain.doecard.samndfelica.Utils.byteToHex;
 import static com.doe.topwisesdk.domain.doecard.samndfelica.Utils.bytesToHexString;
 import static com.doe.topwisesdk.domain.doecard.samndfelica.felica.transactionallogs.TransactionalLogsUtils.setTransactionalLogError;
 
-
-/**
- * Created by eshantmittal on 02/01/18.
- */
 
 public class FelicaOperations {
 
@@ -861,6 +860,7 @@ public class FelicaOperations {
 
         int numOfService = 2;
         int numOfBlockData = 2;
+
         BalanceDataCodes balanceDataCodes = new BalanceDataCodes();
         ByteArrayOutputStream serviceList = new ByteArrayOutputStream();
 
@@ -1317,6 +1317,129 @@ public class FelicaOperations {
             return setFelicaResponse(false, "unknown error");
         }
 
+    }
+    @SuppressLint("LongLogTag")
+    public TollScreenModelClass toll(long branchId) throws IOException, RemoteException {
+
+        TollScreenModelClass tollScreenModelClass = new TollScreenModelClass();
+
+        CardDataModel cardDataModel = new CardDataModel();
+
+        long val = pollingFelicaCard();
+        if (val == APP_ERROR) {
+            return tollScreenModelClass;
+        }
+        int numOfService = 7;
+
+        GenericDataCodes genericDataCodes = new GenericDataCodes();
+        BalanceDataCodes balanceDataCodes = new BalanceDataCodes();
+        TransactionDataCodes transactionDataCodes = new TransactionDataCodes();
+        TollSpecificDataCodes tollSpecificDataCodes = new TollSpecificDataCodes();
+
+        ByteArrayOutputStream serviceList = new ByteArrayOutputStream();
+
+        serviceList.write(genericDataCodes.getSrvCodeUserData1Enc());
+        serviceList.write(genericDataCodes.getSrvCodeUserData2Enc());
+        serviceList.write(genericDataCodes.getSrvCodeCardNumEnc());
+        serviceList.write(balanceDataCodes.getSrvCodeBalancePurseEnc());
+        serviceList.write(transactionDataCodes.getSrvCodeLogEnc());
+        serviceList.write(tollSpecificDataCodes.getSrvCodeTollPassEnc());
+        serviceList.write(tollSpecificDataCodes.getSrvCodeTollTransEnc());
+
+        if (!mutualAuthWithFelicaV2(numOfService, serviceList.toByteArray())) {
+            return new TollScreenModelClass();
+        }
+
+        byte[] genrericDataForToll = readGenericDataForToll();
+
+        if (genrericDataForToll.length <= 0) {
+            return new TollScreenModelClass();
+        }
+
+        cardDataModel = readGenericDataForTollFromBytes(genrericDataForToll);
+
+        Log.e("Generic Data Response for Toll", "" + new Gson().toJson(cardDataModel));
+
+        byte tollRelatedData[] = readTollRelatedData();
+        if (tollRelatedData.length <= 0) {
+            return tollScreenModelClass;
+        }
+        TollDataModelClass tollDataModelClass = readTollRelatedDataFromBytes(tollRelatedData, branchId);
+        Log.e("Toll specific Data Response for Toll", "" + new Gson().toJson(tollDataModelClass));
+        tollScreenModelClass.setCardDataModel(cardDataModel);
+
+      /*  if (cardDataModel.getCardStatus_Int() == FelicaCardConstants.CARD_STATUS_ACTIVATE) {
+
+        }else{
+
+        }*/
+
+        if (cardDataModel.getVehicleType_Int() != 0) {
+
+            int singleJourney = 0;
+            int returnJourney = 0;
+
+            // updateExecutionID();
+
+            int numOfBlocks = 1;
+            ByteArrayOutputStream blockList = new ByteArrayOutputStream();
+            if (tollDataModelClass != null && tollDataModelClass.getTollTransactionDataModelClasses() != null) {
+
+                /*  blockList.write((byte) 0x83);            //Card Balance(16)
+                blockList.write((byte) 0x00);*/
+
+                blockList.write((byte) 0x86);            // Toll Transaction(16)
+                blockList.write((byte) 0x00);
+
+                ByteArrayOutputStream blockData = new ByteArrayOutputStream();
+
+//                blockData.write(mSam.IntToCharArrayLE((returnJourney - singleJourney), 4));
+//                new Utils().appendZeroStream(blockData, 10);
+                //blockData.write(executionId);
+
+                new Utils().appendZeroStream(blockData, 16);
+
+                Log.e("RETURN_JOURNEY blockData============================================== " + blockData.size(), "===" + bytesToHexString(blockData.toByteArray()));
+
+
+                byte[] res = writeDataBlock(numOfBlocks, blockList.toByteArray(), blockData.toByteArray());
+
+                tollScreenModelClass.setSingleJourney(false);
+                //tollScreenModelClass.setJourneyAmount((returnJourney - singleJourney));
+
+            } else {
+
+               /* blockList.write((byte) 0x83);            //Card Balance(16)
+                blockList.write((byte) 0x00);*/
+
+                blockList.write((byte) 0x86);            // Toll Transaction(16)
+                blockList.write((byte) 0x00);
+
+                ByteArrayOutputStream blockData = new ByteArrayOutputStream();
+
+              /*  blockData.write(mSam.IntToCharArrayLE(singleJourney, 4));
+                new Utils().appendZeroStream(blockData, 10);
+                blockData.write(executionId);*/
+
+                blockData.write(mSam.LongToCharArrayLen(branchId, 4));
+                blockData.write(mSam.LongToCharArrayLen(Utility.getUTCSecond(), 4));
+                blockData.write(mSam.LongToCharArrayLen(Utility.getUTCSecond() + TimeUnit.MINUTES.toSeconds(1), 4));
+                new Utils().appendZeroStream(blockData, 4);
+
+                Log.e("SINGLE_JOURNEY blockData============================================== " + blockData.size(), "===" + bytesToHexString(blockData.toByteArray()));
+
+                byte[] res = writeDataBlock(numOfBlocks, blockList.toByteArray(), blockData.toByteArray());
+
+                tollScreenModelClass.setSingleJourney(true);
+                //tollScreenModelClass.setJourneyAmount(singleJourney);
+
+            }
+            //Log.e("========DONE=============", "========DONE=============" + bytesToHexString(executionId));
+        } else {
+            //Please Update the Vehicle Type
+        }
+        Timber.e("FelicaOperations toll tollScreenModelClass=%s", new Gson().toJson(tollScreenModelClass));
+        return tollScreenModelClass;
     }
 
     private ByteArrayOutputStream getStaticTollBlockData(StaticTollPassDetailPojo data) throws IOException {
