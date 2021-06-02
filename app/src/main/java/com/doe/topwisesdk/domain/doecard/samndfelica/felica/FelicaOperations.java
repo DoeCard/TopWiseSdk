@@ -852,6 +852,53 @@ public class FelicaOperations {
         }
 
     }
+    public boolean reduceBalanceByAmount(int amount, long terminalId,int transactionType) throws IOException, RemoteException {
+
+        long val = pollingFelicaCard();
+        if (val == APP_ERROR) {
+            return false;
+        }
+
+        int numOfService = 2;
+        int numOfBlockData = 2;
+        BalanceDataCodes balanceDataCodes = new BalanceDataCodes();
+        ByteArrayOutputStream serviceList = new ByteArrayOutputStream();
+
+        serviceList.write(balanceDataCodes.getSrvCodeBalancePurseEnc());
+        serviceList.write(TransactionalLogsDataCodes.getSrvCodeTransationalLogsEnc());
+
+        if (!mutualAuthWithFelicaV2(numOfService, serviceList.toByteArray())) {
+            Timber.e("reduceBalanceByAmount mutualAuthWithFelicaV2 failed");
+            return false;
+        }
+
+        updateExecutionID();
+        ByteArrayOutputStream blockList = new ByteArrayOutputStream();
+        blockList.write((byte) 0x80);            //Card Balance(16)
+        blockList.write((byte) 0x00);
+
+        blockList.write((byte) 0x81);            //Transaction Type,TxnDateTimeInMilliSeconds,Amount,TerminalId
+        blockList.write((byte) 0x00);
+
+        ByteArrayOutputStream blockData = new ByteArrayOutputStream();
+        //writing balance
+        blockData.write(mSam.IntToCharArrayLE(amount, 4));
+        new Utils().appendZeroStream(blockData, 10);
+        blockData.write(executionId);
+
+        //writing transactional logs
+        blockData.write((byte) transactionType);
+        blockData.write(mSam.LongToCharArrayLen(Utility.getUTCSecond(), 4));
+        new Utils().appendZeroStream(blockData, 2);
+        blockData.write(mSam.LongToCharArrayLen(amount, 4));
+        blockData.write(mSam.LongToCharArrayLen(terminalId, 4));
+        blockData.write((byte) 0);
+
+        Timber.e("block data to be written %s", bytesToHexString(blockData.toByteArray()));
+        byte[] res = writeDataBlock(numOfBlockData, blockList.toByteArray(), blockData.toByteArray());
+
+        return res[0] == (byte) 0x00 && res[1] == (byte) 0x00;
+    }
 
     public boolean activateCard(CardDataModel cardDataModel) throws IOException, RemoteException {
 
