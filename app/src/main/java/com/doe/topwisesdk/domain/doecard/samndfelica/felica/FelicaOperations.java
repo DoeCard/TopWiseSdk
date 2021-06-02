@@ -854,6 +854,7 @@ public class FelicaOperations {
     public boolean reduceBalanceByAmount(int amount, long terminalId,int transactionType) throws IOException, RemoteException {
 
         long val = pollingFelicaCard();
+        getExecutionIdFromCard();
         if (val == APP_ERROR) {
             return false;
         }
@@ -872,8 +873,7 @@ public class FelicaOperations {
             return false;
         }
 
-        //updateExecutionID();
-        getExecutionIdFromCard();
+        updateExecutionID();
         ByteArrayOutputStream blockList = new ByteArrayOutputStream();
         blockList.write((byte) 0x80);            //Card Balance(16)
         blockList.write((byte) 0x00);
